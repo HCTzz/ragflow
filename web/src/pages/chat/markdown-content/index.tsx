@@ -35,7 +35,9 @@ const MarkdownContent = ({
   reference,
   clickDocumentButton,
   content,
+  sendLoading,
 }: {
+  sendLoading: boolean;
   content: string;
   loading: boolean;
   reference: IReference;
@@ -44,14 +46,38 @@ const MarkdownContent = ({
   const { t } = useTranslation();
   const { setDocumentIds, data: fileThumbnails } =
     useFetchDocumentThumbnailsByIds();
+  let endMessage: string = '';
+  const regs = new RegExp(/```html([\s\S]*?)```/g);
   const contentWithCursor = useMemo(() => {
     let text = content;
     if (text === '') {
       text = t('chat.searching');
+    } else {
+      let mesg: RegExpMatchArray | null = text.match(regs);
+      if (mesg !== null && !sendLoading) {
+        let htmlElement = mesg.map(
+          (item) =>
+            (item = item.replace(/^```html\s*/, '').replace(/\s*```$/, '')),
+        )[0];
+        endMessage = content.replace(mesg[0], '');
+        return htmlElement;
+      }
     }
     const nextText = replaceTextByOldReg(text);
-    return pipe(replaceThinkToSection, preprocessLaTeX)(nextText);
-  }, [content, t]);
+    const contentText = pipe(replaceThinkToSection, preprocessLaTeX)(nextText);
+    return contentText;
+  }, [content, t, sendLoading]);
+  const isHtml = useMemo(() => {
+    let text = content;
+    return regs.test(text) && !sendLoading;
+  }, [content, sendLoading]);
+
+  // const htmlElement = useMemo(() => {
+  //   if () {
+
+  //   }
+  //   return ''
+  // }, [content])
 
   useEffect(() => {
     const docAggs = reference?.doc_aggs;
@@ -98,6 +124,7 @@ const MarkdownContent = ({
   const getPopoverContent = useCallback(
     (chunkIndex: number) => {
       const chunks = reference?.chunks ?? [];
+      console.log(chunks);
       const chunkItem = chunks[chunkIndex];
       const document = reference?.doc_aggs?.find(
         (x) => x?.doc_id === chunkItem?.document_id,
@@ -185,13 +212,20 @@ const MarkdownContent = ({
       // replacedText = reactStringReplace(replacedText, curReg, (match, i) => (
       //   <span className={styles.cursor} key={i}></span>
       // ));
-
       return replacedText;
     },
     [getPopoverContent],
   );
 
-  return (
+  return isHtml ? (
+    <div>
+      <iframe
+        style={{ minWidth: '900px', minHeight: '500px' }}
+        srcDoc={contentWithCursor}
+      ></iframe>
+      {/* <div>{endMessage}</div> */}
+    </div>
+  ) : (
     <Markdown
       rehypePlugins={[rehypeWrapReference, rehypeKatex, rehypeRaw]}
       remarkPlugins={[remarkGfm, remarkMath]}

@@ -153,6 +153,7 @@ const MessageItem = ({
               }
             >
               <MarkdownContent
+                sendLoading={sendLoading}
                 loading={loading}
                 content={item.content}
                 reference={reference}
